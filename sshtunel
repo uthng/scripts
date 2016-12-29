@@ -1,0 +1,88 @@
+#!/bin/bash
+
+TUNNEL[0]="zr;192.168.90.46;1234;idevice"
+TUNNEL[1]="hydropw6;192.168.90.43;2345;root"
+TUNNEL[2]="ci;192.168.90.87;3456;debian"
+TUNNEL[3]="rancher;192.168.90.90;5678;ubuntu"
+TUNNEL[4]="hydropw7;192.168.90.51;7777;root"
+
+LOG()
+{
+    echo -e "\033[1;34m $1\033[00m"
+}
+
+LOG_N()
+{
+    echo -e -n "\033[1;34m $1\033[00m"
+}
+
+ERR()
+{
+    echo -e "\033[1;31m $1\033[00m"
+}
+
+function create_tunnel()
+{
+    IP=$1
+    PORT=$2
+    
+    LOG "Creating tunnel to ${IP}:${PORT}"
+    ssh -i os-public-servers.pem -L ${PORT}:${IP}:22 -p222 idevice@idc-compilator -f -N
+}
+
+function check_tunnel()
+{
+    IP=$1
+    PORT=$2
+
+    ret=`ps -ef | grep "${PORT}:${IP}" | grep -v "grep" | wc -l`
+    if [ ${ret} -eq 0 ]; then
+        return 1
+    fi
+
+    return 0
+}
+
+
+function connect()
+{
+    PORT=$1
+    USER=$2
+
+    LOG "Connect to ${PORT} as ${USER}"
+    ssh -i os-public-servers.pem -p ${PORT} -l ${USER} localhost
+}
+
+function main()
+{
+    NOM_MACHINE=$1
+    i=0
+    
+    nbTunnels=${#TUNNEL[@]}
+
+    while [ "${i}" -lt "${nbTunnels}" ]
+    do
+        arr=(`echo ${TUNNEL[${i}]} | tr ";" " "`)
+        if [ "${arr[0]}" == "${NOM_MACHINE}" ]
+        then
+            LOG_N "Check if tunnel is already created : "
+            check_tunnel ${arr[1]} ${arr[2]}
+
+            # Create tunnel if it does not exist yet
+            if [ $? -ne 0 ]; then
+                ERR "No"
+                create_tunnel ${arr[1]} ${arr[2]} ${arr[3]}
+            else
+                LOG "Yes"
+            fi
+            break;
+        fi
+
+        let i=i+1
+    done
+
+    connect ${arr[2]} ${arr[3]}
+
+}
+
+main $1
