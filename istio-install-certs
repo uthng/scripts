@@ -1,0 +1,22 @@
+#!/bin/bash
+[[ -n $DEBUG ]] && set -x
+
+set -eou pipefail
+
+TLS_NAMESPACE="$1"
+TLS_KEY="$2"
+TLS_CERT="$3"
+TLS_CA_CERT="$4"
+
+if [[ -z "${TLS_KEY}" || -z "${TLS_CERT}" ]]; then
+    echo "Error: Both certificate & private key must be specified!"
+    exit 1
+fi
+
+# Create secret for ingressgateway certs
+kubectl create -n ${TLS_NAMESPACE} secret tls istio-ingressgateway-certs --key ${TLS_KEY} --cert ${TLS_CERT}
+
+# Create secret for CA pub certs to use for mTLS
+if [[ ! -z "${TLS_CA_CERT}" ]]; then
+    kubectl create -n istio-system secret generic istio-ingressgateway-ca-certs --from-file=${TLS_CA_CERT}
+fi
